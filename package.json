@@ -1,0 +1,60 @@
+{
+	"name": "bhama-vision-grocery-cloud",
+	"description": "Bhama Vision Grocery Cloud — multi-tenant grocery commerce SaaS platform.",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"dependencies": {
+		"@hookform/resolvers": "^3.10.0",
+		"@supabase/supabase-js": "^2.118.0",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
+		"isbot": "5.1.32",
+		"lucide-react": "^1.61.0",
+		"react": "19.2.1",
+		"react-dom": "19.2.1",
+		"react-hook-form": "^7.91.0",
+		"react-router": "7.9.6",
+		"tailwind-merge": "^3.7.0",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@cloudflare/vite-plugin": "1.52.1",
+		"@eslint/js": "^10.0.1",
+		"@react-router/dev": "7.9.6",
+		"@tailwindcss/vite": "4.1.17",
+		"@testing-library/jest-dom": "^7.0.1",
+		"@testing-library/react": "^16.3.3",
+		"@types/node": "24.10.1",
+		"@types/react": "19.2.7",
+		"@types/react-dom": "19.2.3",
+		"eslint": "^10.13.0",
+		"eslint-plugin-react-hooks": "^7.1.1",
+		"happy-dom": "^21.0.4",
+		"prettier": "^3.9.10",
+		"tailwindcss": "4.1.17",
+		"typescript": "5.9.3",
+		"typescript-eslint": "^8.72.0",
+		"vite": "^7.0.0",
+		"vite-tsconfig-paths": "5.1.4",
+		"vitest": "^5.0.5",
+		"wrangler": "4.136.1"
+	},
+	"scripts": {
+		"build": "react-router build",
+		"cf-typegen": "wrangler types && react-router typegen",
+		"typegen": "react-router typegen",
+		"check": "npm run typecheck && npm run build && wrangler deploy --dry-run",
+		"deploy": "wrangler deploy",
+		"dev": "react-router dev",
+		"preview": "npm run build && vite preview",
+		"typecheck": "react-router typegen && tsc -b",
+		"lint": "eslint .",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "bhama-vision-grocery-cloud",
+	"main": "./workers/app.ts",
+	"compatibility_date": "2025-10-08",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	"vars": {
+		"PUBLIC_APP_NAME": "Bhama Vision Grocery Cloud",
+		"PUBLIC_APP_DOMAIN": "localhost:5173",
+		"PUBLIC_WHATSAPP_NUMBER": "",
+		"PUBLIC_SUPPORT_EMAIL": "hello@bhamavision.example",
+		"PUBLIC_META_PIXEL_ID": "",
+		"PUBLIC_GA_MEASUREMENT_ID": "",
+		"PUBLIC_GOOGLE_ADS_CONVERSION_ID": ""
+	}
+}
