@@ -48,9 +48,31 @@ Legend: ✅ Implemented · 🧪 Tested · 🚧 In progress · ⏳ Not started ·
 **Phase 2 deployability:** the site builds and runs publicly now. Lead capture
 becomes live once Supabase is connected and migrations applied.
 
-## Phases 3–10 — ⏳ Not started
+## Phase 3 — Merchant onboarding ✅ (apply migrations + connect Supabase to run)
 
-3. Merchant onboarding (account → store → slug reservation → plan → checklist)
+| Item                                                         | State | Notes                                                                    |
+| ------------------------------------------------------------ | ----- | ------------------------------------------------------------------------ |
+| Supabase Auth: signup, login, logout, sessions               | ✅    | cookie sessions via `@supabase/ssr` (`lib/auth.server.ts`)               |
+| Email verification + password reset                          | ✅    | `/verify-email`, `/forgot-password`, `/reset-password`, `/auth/callback` |
+| Profile auto-provisioning                                    | ✅    | `handle_new_user` trigger (migration 0011)                               |
+| Merchant registration + business profile                     | ✅🧪  | wizard `business` step; schemas unit tested                              |
+| Unique subdomain reservation + collision/reserved guard      | ✅🧪  | `create_merchant` + UNIQUE constraint; `getSlugStatus` tested            |
+| Plan selection (entitlements stay PENDING)                   | ✅🧪  | `selectPlan` never activates; invariant unit tested                      |
+| Save-and-resume wizard                                       | ✅    | `merchant_onboarding` drives current step                                |
+| Store setup (min order, COD, brand colour, logo URL, zone)   | ✅    | `setup` step                                                             |
+| Merchant dashboard (real tenant data + checklist)            | ✅    | RLS-scoped counts prove isolation                                        |
+| Superadmin merchant review / approve / suspend               | ✅    | `/admin/merchants`, audited; approval is the explicit activation         |
+| Store statuses (draft→pending_verification→active/suspended) | ✅    | enforced server-side                                                     |
+| Loading/validation/error states + mobile UI                  | ✅    | server-validated forms, `useNavigation`                                  |
+| Tenant-permission + duplicate-slug DB test                   | ✅    | `db/tests/onboarding_permissions.sql` (live DB)                          |
+| Live run against a real Supabase project                     | 🔒    | needs your Supabase project + migrations (see LOCAL_SETUP)               |
+
+**Not activated automatically:** selecting a plan or submitting for review never
+grants paid entitlements. A store goes live only via superadmin approval (the
+explicit admin activation) or, from Phase 5, a verified payment.
+
+## Phases 4–10 — ⏳ Not started
+
 4. Single-store commerce (catalog, storefront, cart, checkout, COD, orders, reports)
 5. Payment integration (SaaS billing + merchant gateway, webhooks, refunds)
 6. Delivery management (riders, assignment, foreground live tracking)

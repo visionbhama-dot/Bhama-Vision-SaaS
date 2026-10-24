@@ -14,12 +14,13 @@ isolation.
 
 ## Current status
 
-| Phase                  | Scope                                             | State                                                  |
-| ---------------------- | ------------------------------------------------- | ------------------------------------------------------ |
-| 0 — Foundation         | Framework, design system, env validation, tooling | ✅ Implemented                                         |
-| 1 — Database & tenancy | Schema, RLS, entitlement model, isolation test    | ✅ Migrations written (apply to your Supabase project) |
-| 2 — Marketing & leads  | Landing page, lead capture, SEO                   | ✅ Implemented (lead storage needs Supabase)           |
-| 3–10                   | Onboarding → launch                               | ⏳ Not started                                         |
+| Phase                   | Scope                                                                     | State                                                  |
+| ----------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 0 — Foundation          | Framework, design system, env validation, tooling                         | ✅ Implemented                                         |
+| 1 — Database & tenancy  | Schema, RLS, entitlement model, isolation test                            | ✅ Migrations written (apply to your Supabase project) |
+| 2 — Marketing & leads   | Landing page, lead capture, SEO                                           | ✅ Implemented (lead storage needs Supabase)           |
+| 3 — Merchant onboarding | Auth, registration, subdomain, plan, wizard, dashboard, superadmin review | ✅ Implemented (connect Supabase to run)               |
+| 4–10                    | Commerce → launch                                                         | ⏳ Not started                                         |
 
 See [`docs/PHASES.md`](docs/PHASES.md) for the full tracker and acceptance
 criteria.
@@ -68,7 +69,11 @@ app/
   modules/
     marketing/              Landing page sections, pricing data, components
     leads/                  Lead schema (shared) + server service
-  routes/                   Route modules (home, legal, login, sitemap, robots)
+    onboarding/             Auth/onboarding schemas, wizard service + components
+    platform/               Superadmin merchant operations (approve/suspend/audit)
+  routes/                   Route modules: marketing, auth (signup/login/reset/
+                            callback), onboarding wizard, dashboard, admin, legal
+  lib/auth.server.ts        Cookie-based Supabase Auth + route guards
 db/
   migrations/               Ordered Supabase SQL migrations (schema + RLS + seed)
   tests/                    RLS isolation harness (run against a live DB)
