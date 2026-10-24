@@ -24,10 +24,25 @@
   only when IDs are configured.
 - `noindex` on legal/auth pages; `robots.txt` disallows `/app`, `/admin`, `/api`.
 
+## Implemented in Phase 3 (auth & onboarding)
+
+- Supabase Auth with cookie-based sessions on the Worker (`@supabase/ssr`):
+  signup, login, logout, email verification, password reset. Sessions are
+  validated with `auth.getUser()` (JWT verified), not by trusting cookies.
+- Session cookies are `httpOnly` + `Secure` + `SameSite=Lax`.
+- Strong-password policy + server-side validation of every auth/onboarding form.
+- RBAC via `tenant_memberships`; `requireUser` / `requirePlatformAdmin` guard
+  protected routes; superadmin area requires `platform_role = 'platform_admin'`.
+- Onboarding writes use the service role **after** authenticating the user and
+  re-checking tenant ownership; dashboard reads use the RLS-scoped client so
+  isolation is enforced by the database.
+- Subdomain reservation is race-safe (UNIQUE constraint + reserved-name list);
+  `create_merchant` RPC has `EXECUTE` revoked from `anon`/`authenticated`.
+- Entitlements stay locked: selecting a plan never activates features; only a
+  superadmin approval (audited) or a verified payment (Phase 5) does.
+
 ## Planned (later phases, tracked in PHASES.md)
 
-- Supabase Auth: strong passwords, email/phone verification, secure sessions,
-  password reset, RBAC via `tenant_memberships`.
 - Rate limiting on sensitive endpoints (Cloudflare rate limiting / KV / Durable
   Objects) — the lead endpoint is the first to receive it.
 - CSRF protection for cookie-based mutations; CSP + security headers.

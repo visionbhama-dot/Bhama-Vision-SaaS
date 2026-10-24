@@ -41,7 +41,7 @@ export function SiteHeader({ brand }: { brand: BrandConfig }) {
 							Login
 						</Button>
 					</a>
-					<a href="#contact">
+					<a href="/signup">
 						<Button size="sm">Start Your Store</Button>
 					</a>
 				</div>
@@ -79,7 +79,7 @@ export function SiteHeader({ brand }: { brand: BrandConfig }) {
 									Login
 								</Button>
 							</a>
-							<a href="#contact" className="flex-1">
+							<a href="/signup" className="flex-1">
 								<Button size="sm" className="w-full">
 									Start Your Store
 								</Button>
