@@ -219,7 +219,10 @@ export async function requirePlatformAdmin(
 		.eq("id", user.id)
 		.maybeSingle();
 	if (profile?.platform_role !== "platform_admin") {
-		throw new Response("Forbidden", { status: 403 });
+		throw new Response(
+			"You need administrator access to view this page. Ask a platform owner to grant your account the platform_admin role.",
+			{ status: 403, statusText: "Forbidden" },
+		);
 	}
 	return { auth, user };
 }
