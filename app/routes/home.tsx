@@ -20,9 +20,23 @@ import {
 import { Pricing } from "~/modules/marketing/components/pricing";
 import { Faq } from "~/modules/marketing/components/faq";
 import { LeadForm } from "~/modules/marketing/components/lead-form";
+import {
+	resolveStoreByHost,
+	getStorefront,
+	isPubliclyVisible,
+} from "~/modules/storefront/service.server";
+import { StorefrontView } from "~/modules/storefront/components";
 
 export function meta({ data }: Route.MetaArgs) {
 	const brand = data?.brand;
+	if (data?.mode === "storefront") {
+		const name = data.storefront.store.displayName;
+		return buildMeta({
+			title: `${name} — Order groceries online`,
+			description: `Shop groceries from ${name} online.`,
+			siteName: brand?.name ?? "Bhama Vision Grocery Cloud",
+		});
+	}
 	const url = brand ? `https://${brand.domain}/` : undefined;
 	const tags = buildMeta({
 		title: `${brand?.name ?? "Bhama Vision Grocery Cloud"} — Your Grocery Store. Now Online.`,
@@ -34,10 +48,26 @@ export function meta({ data }: Route.MetaArgs) {
 	return tags;
 }
 
-export function loader({ context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
 	const env = getEnv(context.cloudflare.env);
 	const brand = resolveBrand(toPublicConfig(env));
-	return { brand };
+
+	// Host-based multi-tenant resolution: when a request arrives on a merchant
+	// subdomain / custom domain (i.e. not the platform apex or a *.workers.dev
+	// host), serve that store's storefront at "/". Otherwise, serve marketing.
+	const host = (request.headers.get("host") ?? "").toLowerCase();
+	const apex = (env.PUBLIC_APP_DOMAIN ?? "").toLowerCase();
+	const isPlatformHost =
+		!host || host === apex || host.endsWith(".workers.dev");
+	if (!isPlatformHost) {
+		const store = await resolveStoreByHost(context.cloudflare.env, host);
+		if (store && isPubliclyVisible(store.status)) {
+			const storefront = await getStorefront(context.cloudflare.env, store);
+			return { mode: "storefront" as const, brand, storefront };
+		}
+	}
+
+	return { mode: "marketing" as const, brand };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -80,6 +110,14 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
+	if (loaderData.mode === "storefront") {
+		return (
+			<StorefrontView
+				storefront={loaderData.storefront}
+				platformName={loaderData.brand.name}
+			/>
+		);
+	}
 	const { brand } = loaderData;
 	const jsonLd = organizationJsonLd({
 		name: brand.name,
