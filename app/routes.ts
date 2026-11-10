@@ -16,6 +16,10 @@ export default [
 	route("onboarding", "routes/onboarding.tsx"),
 	route("onboarding/:step", "routes/onboarding.step.tsx"),
 	route("dashboard", "routes/dashboard.tsx"),
+	route("dashboard/products", "routes/dashboard.products.tsx"),
+
+	// Customer storefront (path form; subdomain/custom-domain resolves via Host)
+	route("store/:slug", "routes/storefront.tsx"),
 
 	// Superadmin
 	route("admin", "routes/admin.tsx"),

@@ -10,6 +10,7 @@ import {
 	ArrowRight,
 	ShieldCheck,
 	LogOut,
+	ExternalLink,
 } from "lucide-react";
 import type { Route } from "./+types/dashboard";
 import { getEnv, toPublicConfig } from "~/lib/env.server";
@@ -86,13 +87,19 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 	const entitlementsActive = subStatus === "active";
 	const subdomain = `${store.slug}.${apex}`;
 
-	const nav = [
-		{ label: "Overview", icon: LayoutDashboard, active: true },
-		{ label: "Products", icon: Package },
+	const nav: {
+		label: string;
+		icon: React.ElementType;
+		to?: string;
+		href?: string;
+		active?: boolean;
+	}[] = [
+		{ label: "Overview", icon: LayoutDashboard, to: "/dashboard", active: true },
+		{ label: "Products", icon: Package, to: "/dashboard/products" },
 		{ label: "Orders", icon: ShoppingCart },
 		{ label: "Customers", icon: Users },
 		{ label: "Delivery", icon: Bike },
-		{ label: "Storefront", icon: StoreIcon },
+		{ label: "Storefront", icon: StoreIcon, href: `/store/${store.slug}` },
 		{ label: "Settings", icon: Settings },
 	];
 
@@ -127,25 +134,57 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 				{/* Sidebar */}
 				<aside className="hidden lg:block">
 					<nav className="space-y-1">
-						{nav.map((item) => (
-							<div
-								key={item.label}
-								className={
-									item.active
-										? "flex items-center gap-2.5 rounded-xl bg-brand-50 px-3 py-2.5 text-sm font-semibold text-brand-800"
-										: "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-ink-400"
-								}
-							>
+						{nav.map((item) => {
+							const label = (
 								<span className="flex items-center gap-2.5">
 									<item.icon className="size-4" /> {item.label}
 								</span>
-								{!item.active && (
-									<span className="text-[10px] font-medium uppercase">
-										soon
-									</span>
-								)}
-							</div>
-						))}
+							);
+							if (item.active) {
+								return (
+									<div
+										key={item.label}
+										className="flex items-center gap-2.5 rounded-xl bg-brand-50 px-3 py-2.5 text-sm font-semibold text-brand-800"
+									>
+										{label}
+									</div>
+								);
+							}
+							if (item.to) {
+								return (
+									<Link
+										key={item.label}
+										to={item.to}
+										className="flex items-center rounded-xl px-3 py-2.5 text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+									>
+										{label}
+									</Link>
+								);
+							}
+							if (item.href) {
+								return (
+									<a
+										key={item.label}
+										href={item.href}
+										target="_blank"
+										rel="noreferrer"
+										className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+									>
+										{label}
+										<ExternalLink className="size-3.5 text-ink-400" />
+									</a>
+								);
+							}
+							return (
+								<div
+									key={item.label}
+									className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-ink-400"
+								>
+									{label}
+									<span className="text-[10px] font-medium uppercase">soon</span>
+								</div>
+							);
+						})}
 					</nav>
 				</aside>
 
@@ -233,10 +272,25 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 						<CardContent>
 							<h2 className="font-semibold text-ink-900">What's next</h2>
 							<p className="mt-2 text-sm text-ink-500">
-								Catalogue, customer storefront, orders and delivery arrive in
-								the next phases. These figures are live from your account and
-								will update as you add products and receive orders.
+								Build your catalogue and preview your storefront. Orders,
+								customers and delivery arrive in the next phases.
 							</p>
+							<div className="mt-4 flex flex-wrap gap-2">
+								<Link to="/dashboard/products">
+									<Button size="sm">
+										<Package /> Manage products
+									</Button>
+								</Link>
+								<a
+									href={`/store/${store.slug}`}
+									target="_blank"
+									rel="noreferrer"
+								>
+									<Button size="sm" variant="outline">
+										<ExternalLink /> View storefront
+									</Button>
+								</a>
+							</div>
 						</CardContent>
 					</Card>
 				</main>
