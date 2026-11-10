@@ -54,6 +54,18 @@ insert into public.customers (tenant_id, full_name, phone) values
   ('bbbbbbbb-0000-0000-0000-000000000001', 'Customer B1', '+910000000002')
 on conflict do nothing;
 
+-- Merchant-owned payment connections (0014) — highly sensitive.
+insert into public.merchant_payment_accounts (tenant_id, provider, status, key_id) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'razorpay', 'connected', 'rzp_test_AAA1111111'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'razorpay', 'connected', 'rzp_test_BBB2222222')
+on conflict do nothing;
+
+-- Pharmacy verifications (0015) — licence data must not leak across tenants.
+insert into public.pharmacy_verifications (tenant_id, status, license_number) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'pending', 'DL-A-123'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'pending', 'DL-B-456')
+on conflict do nothing;
+
 -- --- Act as Owner A ----------------------------------------------------------
 set local role authenticated;
 select set_config(
@@ -82,6 +94,42 @@ begin
   select count(*) into visible from public.leads;
   assert visible = 0, 'ISOLATION FAILURE: merchant can read leads';
   raise notice 'PASS: merchant sees % leads (expected 0)', visible;
+end $$;
+
+-- EXPECT: Owner A sees only their own payment connection, never Store B's.
+do $$
+declare a_count int; b_leak int;
+begin
+  select count(*) into a_count from public.merchant_payment_accounts
+    where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  select count(*) into b_leak from public.merchant_payment_accounts
+    where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert a_count = 1, 'Owner A should see their own payment connection';
+  assert b_leak = 0, 'ISOLATION FAILURE: Owner A can read Store B payment connection';
+  raise notice 'PASS: Owner A sees % own payment connection(s), % of Store B (expected 0)', a_count, b_leak;
+end $$;
+
+-- EXPECT: Owner A sees only their own pharmacy verification, never Store B's.
+do $$
+declare a_count int; b_leak int;
+begin
+  select count(*) into a_count from public.pharmacy_verifications
+    where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  select count(*) into b_leak from public.pharmacy_verifications
+    where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert a_count = 1, 'Owner A should see their own pharmacy verification';
+  assert b_leak = 0, 'ISOLATION FAILURE: Owner A can read Store B pharmacy verification';
+  raise notice 'PASS: Owner A sees % own pharmacy verification(s), % of Store B (expected 0)', a_count, b_leak;
+end $$;
+
+-- EXPECT: medicine ordering is OFF by default on a freshly created store.
+do $$
+declare med boolean;
+begin
+  select medicine_ordering_enabled into med from public.stores
+    where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  assert med = false, 'SAFETY FAILURE: medicine ordering should default to false';
+  raise notice 'PASS: medicine ordering defaults to disabled';
 end $$;
 
 reset role;

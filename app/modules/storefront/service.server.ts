@@ -35,6 +35,13 @@ export interface StorefrontStore {
 	brandColor: string | null;
 	currency: string;
 	minOrderPaise: number;
+	category: string;
+	/**
+	 * Medicine ordering/checkout is OFF unless a platform admin has explicitly
+	 * enabled it for a verified pharmacy after legal review. Any future checkout
+	 * MUST gate medicine purchases on this flag (see isMedicineOrderingAllowed).
+	 */
+	medicineOrderingEnabled: boolean;
 }
 
 export interface Storefront {
@@ -43,7 +50,7 @@ export interface Storefront {
 }
 
 const STORE_COLUMNS =
-	"id, tenant_id, slug, display_name, status, logo_url, theme, currency, min_order_paise";
+	"id, tenant_id, slug, display_name, status, logo_url, theme, currency, min_order_paise, category, medicine_ordering_enabled";
 
 type RawStore = {
 	id: string;
@@ -55,6 +62,8 @@ type RawStore = {
 	theme: Record<string, unknown> | null;
 	currency: string | null;
 	min_order_paise: number | null;
+	category: string | null;
+	medicine_ordering_enabled: boolean | null;
 };
 
 function toStore(row: RawStore): StorefrontStore {
@@ -69,7 +78,19 @@ function toStore(row: RawStore): StorefrontStore {
 		brandColor: typeof theme.brandColor === "string" ? theme.brandColor : null,
 		currency: row.currency ?? "INR",
 		minOrderPaise: row.min_order_paise ?? 0,
+		category: row.category ?? "general",
+		medicineOrderingEnabled: Boolean(row.medicine_ordering_enabled),
 	};
+}
+
+/**
+ * Authoritative guard for any medicine checkout flow. Medicine ordering is only
+ * permitted when a store has it explicitly enabled (which requires a verified
+ * pharmacy + legal-review approval set by a platform admin). Non-pharmacy stores
+ * never offer medicine ordering.
+ */
+export function isMedicineOrderingAllowed(store: StorefrontStore): boolean {
+	return store.category === "pharmacy" && store.medicineOrderingEnabled;
 }
 
 /** Resolve a store by its subdomain label (the `slug`). */

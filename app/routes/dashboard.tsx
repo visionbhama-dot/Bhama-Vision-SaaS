@@ -11,6 +11,8 @@ import {
 	ShieldCheck,
 	LogOut,
 	ExternalLink,
+	Wallet,
+	Pill,
 } from "lucide-react";
 import type { Route } from "./+types/dashboard";
 import { getEnv, toPublicConfig } from "~/lib/env.server";
@@ -94,8 +96,15 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 		href?: string;
 		active?: boolean;
 	}[] = [
-		{ label: "Overview", icon: LayoutDashboard, to: "/dashboard", active: true },
+		{
+			label: "Overview",
+			icon: LayoutDashboard,
+			to: "/dashboard",
+			active: true,
+		},
 		{ label: "Products", icon: Package, to: "/dashboard/products" },
+		{ label: "Payments", icon: Wallet, to: "/dashboard/payments" },
+		{ label: "Pharmacy", icon: Pill, to: "/dashboard/pharmacy" },
 		{ label: "Orders", icon: ShoppingCart },
 		{ label: "Customers", icon: Users },
 		{ label: "Delivery", icon: Bike },
@@ -181,7 +190,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 									className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-ink-400"
 								>
 									{label}
-									<span className="text-[10px] font-medium uppercase">soon</span>
+									<span className="text-[10px] font-medium uppercase">
+										soon
+									</span>
 								</div>
 							);
 						})}

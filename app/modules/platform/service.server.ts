@@ -20,6 +20,10 @@ export interface MerchantRow {
 	plan_slug: string | null;
 	subscription_status: string | null;
 	city: string | null;
+	category: string | null;
+	payment_status: string | null;
+	payment_environment: string | null;
+	pharmacy_status: string | null;
 }
 
 async function logAudit(
@@ -46,9 +50,11 @@ export async function listMerchants(env: unknown): Promise<MerchantRow[]> {
 		.from("tenants")
 		.select(
 			`id, name, kind, created_at,
-			 stores(id, slug, display_name, status),
+			 stores(id, slug, display_name, status, category),
 			 business_profiles(city),
-			 tenant_subscriptions(status, subscription_plans(slug))`,
+			 tenant_subscriptions(status, subscription_plans(slug)),
+			 merchant_payment_accounts(status, environment),
+			 pharmacy_verifications(status)`,
 		)
 		.order("created_at", { ascending: false })
 		.limit(200);
@@ -63,6 +69,12 @@ export async function listMerchants(env: unknown): Promise<MerchantRow[]> {
 			: t.tenant_subscriptions;
 		const planRel = sub?.subscription_plans;
 		const plan = Array.isArray(planRel) ? planRel[0] : planRel;
+		const pay = Array.isArray(t.merchant_payment_accounts)
+			? t.merchant_payment_accounts[0]
+			: t.merchant_payment_accounts;
+		const pharm = Array.isArray(t.pharmacy_verifications)
+			? t.pharmacy_verifications[0]
+			: t.pharmacy_verifications;
 		return {
 			tenant_id: t.id,
 			tenant_name: t.name,
@@ -75,6 +87,10 @@ export async function listMerchants(env: unknown): Promise<MerchantRow[]> {
 			plan_slug: plan?.slug ?? null,
 			subscription_status: sub?.status ?? null,
 			city: bp?.city ?? null,
+			category: store?.category ?? null,
+			payment_status: pay?.status ?? null,
+			payment_environment: pay?.environment ?? null,
+			pharmacy_status: pharm?.status ?? null,
 		};
 	});
 }

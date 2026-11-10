@@ -71,6 +71,30 @@ becomes live once Supabase is connected and migrations applied.
 grants paid entitlements. A store goes live only via superadmin approval (the
 explicit admin activation) or, from Phase 5, a verified payment.
 
+## Phase 3+ — Merchant-owned payments & pharmacy verification 🚧 (apply migrations + connect Supabase to run)
+
+| Item                                                                     | State | Notes                                                                   |
+| ------------------------------------------------------------------------ | ----- | ----------------------------------------------------------------------- |
+| Merchant payment-account connection model                                | ✅    | `merchant_payment_accounts` (migration 0014), owner+admin RLS           |
+| Provider adapter architecture (Razorpay first, extensible)               | ✅🧪  | `modules/payments/providers/*`; adapter validation unit tested          |
+| Merchant payment settings page                                           | ✅    | `/dashboard/payments`: connect/disconnect, test vs live, masked key     |
+| Connection statuses (not_connected/pending/connected/error/disconnected) | ✅    | enum in 0014; shown to merchant + superadmin                            |
+| No raw secrets in DB (secret_ref → Worker secret)                        | ✅    | only public key id stored; secret provisioned out-of-band               |
+| Superadmin visibility of connection status                               | ✅    | surfaced on `/admin/merchants`                                          |
+| Live charge/verification (create order, webhook)                         | 🔒    | Phase 5 — needs merchant's provider secret + webhook registration       |
+| Licensed Pharmacy category (non-breaking)                                | ✅    | `stores.category` (migration 0015); default keeps existing stores       |
+| Pharmacy verification workflow + documents                               | ✅    | `pharmacy_verifications` / `pharmacy_documents`; `/dashboard/pharmacy`  |
+| Superadmin pharmacy review (pending→under_review→verified/…)             | ✅    | `/admin/pharmacy`, audited; 24h review target recorded                  |
+| Medicine ordering DISABLED by default + explicit gate                    | ✅🧪  | `stores.medicine_ordering_enabled=false`; separate audited admin toggle |
+| Secure binary document upload (private Storage bucket)                   | 🔒    | needs a private `pharmacy-docs` Supabase Storage bucket (see below)     |
+| Payment + pharmacy tenant-isolation DB test                              | ✅    | extended `db/tests/rls_isolation.sql` (live DB)                         |
+| Live run against a real Supabase project                                 | 🔒    | needs your Supabase project + migrations (see LOCAL_SETUP)              |
+
+**Safety invariants:** uploading documents or verifying a licence never enables
+medicine ordering, and platform verification is never presented as government
+approval. Medicine ordering is a separate, explicit, audited admin action gated
+on a prior `verified` status and intended to follow the applicable legal review.
+
 ## Phases 4–10 — ⏳ Not started
 
 4. Single-store commerce (catalog, storefront, cart, checkout, COD, orders, reports)
