@@ -10,7 +10,7 @@
 	"upload_source_maps": true,
 	"vars": {
 		"PUBLIC_APP_NAME": "Bhama Vision Grocery Cloud",
-		"PUBLIC_APP_DOMAIN": "localhost:5173",
+		"PUBLIC_APP_DOMAIN": "CHANGE_ME.example",
 		"PUBLIC_WHATSAPP_NUMBER": "",
 		"PUBLIC_SUPPORT_EMAIL": "hello@bhamavision.example",
 		"PUBLIC_META_PIXEL_ID": "",
