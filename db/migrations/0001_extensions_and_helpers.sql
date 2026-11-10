@@ -13,6 +13,14 @@ create extension if not exists citext;   -- case-insensitive text (emails, slugs
 -- Dedicated schema for helper functions we don't want exposed via PostgREST.
 create schema if not exists app;
 
+-- The authorization helpers below reference public.user_profiles and
+-- public.tenant_memberships, which are created in 0002. PostgreSQL validates
+-- `language sql` function bodies at creation time, so disable that check while
+-- this migration runs (the functions are only invoked at query time, after
+-- 0002 has created the tables). This mirrors what pg_dump emits for the same
+-- forward-reference reason and is session-scoped.
+set check_function_bodies = off;
+
 -- -----------------------------------------------------------------------------
 -- updated_at maintenance
 -- -----------------------------------------------------------------------------
