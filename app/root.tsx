@@ -64,11 +64,19 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	let stack: string | undefined;
 
 	if (isRouteErrorResponse(error)) {
-		message = error.status === 404 ? "404" : "Error";
-		details =
-			error.status === 404
-				? "The requested page could not be found."
-				: error.statusText || details;
+		// Prefer the thrown Response body (error.data) so access-control and other
+		// deliberate errors explain themselves instead of showing a generic blurb.
+		const body = typeof error.data === "string" ? error.data : "";
+		if (error.status === 404) {
+			message = "404";
+			details = "The requested page could not be found.";
+		} else if (error.status === 403) {
+			message = "Access denied";
+			details = body || "You don't have permission to view this page.";
+		} else {
+			message = "Error";
+			details = body || error.statusText || details;
+		}
 	} else if (import.meta.env.DEV && error && error instanceof Error) {
 		details = error.message;
 		stack = error.stack;
