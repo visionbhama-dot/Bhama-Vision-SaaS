@@ -47,3 +47,43 @@ payment.
 - Create/approve a Razorpay (or equivalent) account; complete KYC.
 - Store API keys as Cloudflare secrets.
 - Register webhook endpoints (added in Phase 5) in the gateway dashboard.
+
+## Merchant payment-account connections (System B wiring)
+
+Each merchant connects **their own** provider account from
+`/dashboard/payments`. Implemented in migration `0014` + `app/modules/payments`.
+
+- **Model.** One `merchant_payment_accounts` row per `(tenant, provider)`.
+  Statuses: `not_connected`, `pending`, `connected`, `error`, `disconnected`.
+  Owner-only + platform-admin RLS; never world-readable.
+- **Adapters.** `app/modules/payments/providers/` defines a `PaymentProviderAdapter`
+  interface with a registry. Razorpay ships first; adding a provider is a new
+  adapter file + a registry entry (no schema change).
+- **Secret handling.** We store **only** the public key id (e.g. Razorpay
+  `key_id`). The real secret key is **never** stored in the database. Each
+  tenant's secret is a Worker secret named by the adapter —
+  `RZP_SECRET_<TENANT_ID_UNDERSCORED>` — set out-of-band with
+  `wrangler secret put`. The connection row keeps that name in `secret_ref`.
+- **Test vs live.** A validated **test** key is marked `connected` immediately
+  (usable for sandbox flows). A **live** key is stored and marked `pending`
+  because going live additionally requires the provider secret and a real
+  verification/charge call (Phase 5). We never fabricate a live `connected`
+  state.
+
+### To activate live customer payments (🔒 owner action)
+
+1. In the merchant's Razorpay dashboard, complete KYC and generate **live** API
+   keys.
+2. Paste the live **Key ID** on `/dashboard/payments` (Mode = Live).
+3. An operator sets the matching secret as a Worker secret:
+   `wrangler secret put RZP_SECRET_<TENANT_ID_UNDERSCORED>`.
+4. The create-order + signature-verified webhook flow (Phase 5) then flips the
+   connection to `connected` after a real verification.
+
+## Pharmacy document storage (🔒 setup)
+
+Licensed-pharmacy supporting documents are intended for a **private** Supabase
+Storage bucket named `pharmacy-docs` (no public access; readable only by the
+owning tenant + platform admins). Until that bucket is created, the UI records
+document **references/metadata** only — it never publishes files and never fakes
+an upload. See `db/migrations/0015` and `/dashboard/pharmacy`.

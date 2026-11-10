@@ -1,10 +1,15 @@
 # Bhama Vision Grocery Cloud
 
-A multi-tenant grocery commerce **SaaS platform** by Bhama Vision. It lets local
-grocery stores, supermarkets, kirana shops and marketplaces launch their own
-branded online ordering business — storefront, merchant dashboard, delivery
-operations and a marketplace — on one shared backend with strict tenant
-isolation.
+A multi-tenant, white-label commerce **SaaS platform** by Bhama Vision. It lets
+local stores, supermarkets, kirana shops and marketplace operators launch their
+own branded online ordering business — storefront, merchant dashboard, delivery
+operations and (on the Marketplace tier) a multi-vendor network — on one shared
+backend with strict tenant isolation.
+
+**Software only.** Each merchant is the seller of record: they own their
+products, connect their **own** payment account and receive customer payments
+directly, and arrange their own delivery. Bhama Vision charges a monthly software
+subscription and never pools merchants' customer payments into one account.
 
 > This repository is being built in phases (see
 > [`docs/PHASES.md`](docs/PHASES.md)). It is a real product, not a demo. Features
@@ -14,13 +19,14 @@ isolation.
 
 ## Current status
 
-| Phase                   | Scope                                                                     | State                                                  |
-| ----------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 0 — Foundation          | Framework, design system, env validation, tooling                         | ✅ Implemented                                         |
-| 1 — Database & tenancy  | Schema, RLS, entitlement model, isolation test                            | ✅ Migrations written (apply to your Supabase project) |
-| 2 — Marketing & leads   | Landing page, lead capture, SEO                                           | ✅ Implemented (lead storage needs Supabase)           |
-| 3 — Merchant onboarding | Auth, registration, subdomain, plan, wizard, dashboard, superadmin review | ✅ Implemented (connect Supabase to run)               |
-| 4–10                    | Commerce → launch                                                         | ⏳ Not started                                         |
+| Phase                    | Scope                                                                     | State                                                      |
+| ------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 0 — Foundation           | Framework, design system, env validation, tooling                         | ✅ Implemented                                             |
+| 1 — Database & tenancy   | Schema, RLS, entitlement model, isolation test                            | ✅ Migrations written (apply to your Supabase project)     |
+| 2 — Marketing & leads    | Landing page, lead capture, SEO                                           | ✅ Implemented (lead storage needs Supabase)               |
+| 3 — Merchant onboarding  | Auth, registration, subdomain, plan, wizard, dashboard, superadmin review | ✅ Implemented (connect Supabase to run)                   |
+| 3+ — Payments & pharmacy | Merchant-owned payment connections, Licensed Pharmacy verification        | 🚧 Implemented (connect Supabase; live payments need keys) |
+| 4–10                     | Commerce → launch                                                         | ⏳ Not started                                             |
 
 See [`docs/PHASES.md`](docs/PHASES.md) for the full tracker and acceptance
 criteria.

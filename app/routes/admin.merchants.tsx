@@ -94,12 +94,14 @@ export default function AdminMerchants({
 							<ShieldCheck className="size-3.5" /> Superadmin
 						</Badge>
 					</div>
-					<Link
-						to="/dashboard"
-						className="text-sm text-ink-200 hover:text-white"
-					>
-						Back to dashboard
-					</Link>
+					<div className="flex items-center gap-4 text-sm text-ink-200">
+						<Link to="/admin/pharmacy" className="hover:text-white">
+							Pharmacy review
+						</Link>
+						<Link to="/dashboard" className="hover:text-white">
+							Back to dashboard
+						</Link>
+					</div>
 				</div>
 			</header>
 
@@ -171,6 +173,17 @@ function MerchantRow({
 					{m.kind === "marketplace" ? "Marketplace" : "Single store"} ·{" "}
 					{m.plan_slug ?? "no plan"} ({m.subscription_status ?? "—"})
 				</p>
+				<div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+					<Badge variant="outline">
+						Pay: {m.payment_status ?? "not connected"}
+						{m.payment_environment ? ` (${m.payment_environment})` : ""}
+					</Badge>
+					{m.category === "pharmacy" && (
+						<Badge variant="blue">
+							Pharmacy: {m.pharmacy_status ?? "pending"}
+						</Badge>
+					)}
+				</div>
 			</div>
 			<div className="flex items-center gap-2">
 				{m.status && <StoreStatusBadge status={m.status} />}
