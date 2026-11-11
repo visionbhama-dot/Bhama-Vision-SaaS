@@ -162,58 +162,46 @@ export async function getPackProducts(
 	};
 }
 
+export interface ImportRowError {
+	masterId: string;
+	name: string;
+	message: string;
+}
+
 export interface ImportResult {
 	ok: boolean;
 	total: number;
 	created: number;
 	skipped: number; // already-owned duplicates
 	failed: number;
+	/** Row-level failures, so the UI can show reasons and offer retry-failed-only. */
+	errors: ImportRowError[];
+	/** Master-product ids that failed and can be safely retried. */
+	failedIds: string[];
 	error?: string;
 }
 
-/**
- * Import selected master products into a tenant's catalogue as drafts.
- * Idempotent + retry-safe via on-conflict-do-nothing on the unique
- * (tenant_id, master_product_id) index. Processes in bounded batches.
- */
-export async function importMasterProducts(
-	supabase: SupabaseClient,
+interface ProductInsertRow {
+	tenant_id: string;
+	master_product_id: string;
+	name: string;
+	slug: string;
+	price_paise: number;
+	unit: string | null;
+	category: string | null;
+	brand: string | null;
+	barcode: string | null;
+	description: string | null;
+	is_visible: boolean;
+	status: "draft";
+	source: "catalogue";
+}
+
+function buildRow(
 	tenantId: string,
-	userId: string,
-	masterProductIds: string[],
-	packId: string | null = null,
-): Promise<ImportResult> {
-	const ids = [...new Set(masterProductIds)].slice(0, IMPORT_LIMIT);
-	if (ids.length === 0) {
-		return {
-			ok: false,
-			total: 0,
-			created: 0,
-			skipped: 0,
-			failed: 0,
-			error: "No products selected.",
-		};
-	}
-
-	const { data: masters, error: mErr } = await supabase
-		.from("master_products")
-		.select(
-			"id, name, category, subcategory, brand, pack_size, barcode, description",
-		)
-		.in("id", ids)
-		.eq("is_active", true);
-	if (mErr) {
-		return {
-			ok: false,
-			total: ids.length,
-			created: 0,
-			skipped: 0,
-			failed: ids.length,
-			error: "Could not read the catalogue.",
-		};
-	}
-
-	const rows = (masters ?? []).map((m) => ({
+	m: Record<string, unknown>,
+): ProductInsertRow {
+	return {
 		tenant_id: tenantId,
 		master_product_id: m.id as string,
 		name: m.name as string,
@@ -229,30 +217,153 @@ export async function importMasterProducts(
 		barcode: (m.barcode as string | null) ?? null,
 		description: (m.description as string | null) ?? null,
 		is_visible: false,
-		status: "draft" as const,
-		source: "catalogue" as const,
-	}));
+		status: "draft",
+		source: "catalogue",
+	};
+}
 
-	let created = 0;
-	let failed = 0;
-	for (let i = 0; i < rows.length; i += BATCH) {
-		const chunk = rows.slice(i, i + BATCH);
-		const { data, error } = await supabase
-			.from("products")
-			.upsert(chunk, {
-				onConflict: "tenant_id,master_product_id",
-				ignoreDuplicates: true,
-			})
-			.select("id");
-		if (error) {
-			failed += chunk.length;
-			continue;
-		}
-		created += data?.length ?? 0;
+function isDuplicate(message: string): boolean {
+	const m = message.toLowerCase();
+	return (
+		m.includes("duplicate key") ||
+		m.includes("uq_products_tenant_master") ||
+		m.includes("already exists") ||
+		m.includes("23505")
+	);
+}
+
+/**
+ * Import selected master products into a tenant's catalogue as drafts.
+ *
+ * Strategy (retry-safe, row-accurate):
+ *  1. Load the requested master products (ids that don't resolve → failed).
+ *  2. Skip the ones the tenant already owns (unique (tenant_id, master_product_id)).
+ *  3. Insert the rest in bounded batches with a PLAIN insert. We cannot use
+ *     PostgREST `onConflict` here because the dedup index is PARTIAL
+ *     (`WHERE master_product_id IS NOT NULL`) and Postgres rejects
+ *     `ON CONFLICT (tenant_id, master_product_id)` against a partial index
+ *     (42P10). On a batch error we fall back to per-row inserts so a single bad
+ *     or racing row never fails the whole batch, and every failure is reported
+ *     with a reason. A late duplicate (race) is counted as skipped, not failed.
+ */
+export async function importMasterProducts(
+	supabase: SupabaseClient,
+	tenantId: string,
+	userId: string,
+	masterProductIds: string[],
+	packId: string | null = null,
+): Promise<ImportResult> {
+	const base = (): ImportResult => ({
+		ok: false,
+		total: 0,
+		created: 0,
+		skipped: 0,
+		failed: 0,
+		errors: [],
+		failedIds: [],
+	});
+
+	const ids = [...new Set(masterProductIds)].slice(0, IMPORT_LIMIT);
+	if (ids.length === 0)
+		return { ...base(), error: "No products selected." };
+
+	const { data: masters, error: mErr } = await supabase
+		.from("master_products")
+		.select(
+			"id, name, category, subcategory, brand, pack_size, barcode, description",
+		)
+		.in("id", ids)
+		.eq("is_active", true);
+	if (mErr) {
+		return {
+			...base(),
+			total: ids.length,
+			failed: ids.length,
+			failedIds: ids,
+			errors: ids.map((id) => ({
+				masterId: id,
+				name: id,
+				message: "Could not read the catalogue.",
+			})),
+			error: "Could not read the catalogue. Please try again.",
+		};
 	}
 
+	const masterById = new Map(
+		(masters ?? []).map((m) => [m.id as string, m]),
+	);
+
+	// ids that didn't resolve to an active master product.
+	const errors: ImportRowError[] = [];
+	for (const id of ids) {
+		if (!masterById.has(id))
+			errors.push({
+				masterId: id,
+				name: id,
+				message: "No longer in the catalogue.",
+			});
+	}
+
+	// Which of these does the tenant already have? → skipped.
+	const resolvedIds = [...masterById.keys()];
+	let ownedIds = new Set<string>();
+	if (resolvedIds.length > 0) {
+		const { data: owned } = await supabase
+			.from("products")
+			.select("master_product_id")
+			.eq("tenant_id", tenantId)
+			.in("master_product_id", resolvedIds);
+		ownedIds = new Set(
+			(owned ?? []).map((o) => o.master_product_id as string).filter(Boolean),
+		);
+	}
+
+	const toInsert = resolvedIds.filter((id) => !ownedIds.has(id));
+	let created = 0;
+	const skippedOwned = ownedIds.size;
+	let skippedRace = 0;
+
+	async function insertOne(id: string): Promise<void> {
+		const m = masterById.get(id)!;
+		const { error } = await supabase
+			.from("products")
+			.insert(buildRow(tenantId, m))
+			.select("id")
+			.single();
+		if (!error) {
+			created += 1;
+			return;
+		}
+		if (isDuplicate(error.message ?? "")) {
+			skippedRace += 1;
+			return;
+		}
+		errors.push({
+			masterId: id,
+			name: (m.name as string) ?? id,
+			message: error.message ?? "Insert failed.",
+		});
+	}
+
+	for (let i = 0; i < toInsert.length; i += BATCH) {
+		const chunkIds = toInsert.slice(i, i + BATCH);
+		const chunkRows = chunkIds.map((id) => buildRow(tenantId, masterById.get(id)!));
+		const { data, error } = await supabase
+			.from("products")
+			.insert(chunkRows)
+			.select("id");
+		if (!error) {
+			created += data?.length ?? 0;
+			continue;
+		}
+		// Batch failed → classify each row individually.
+		for (const id of chunkIds) await insertOne(id);
+	}
+
+	const failedIds = errors.map((e) => e.masterId);
+	const failed = failedIds.length;
+	const skipped = skippedOwned + skippedRace;
 	const total = ids.length;
-	const skipped = Math.max(0, total - created - failed);
 	const status =
 		failed > 0 ? (created > 0 ? "partial" : "failed") : "completed";
 
@@ -274,5 +385,13 @@ export async function importMasterProducts(
 			() => undefined,
 		);
 
-	return { ok: failed === 0, total, created, skipped, failed };
+	return {
+		ok: failed === 0,
+		total,
+		created,
+		skipped,
+		failed,
+		errors,
+		failedIds,
+	};
 }
