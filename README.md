@@ -26,6 +26,7 @@ subscription and never pools merchants' customer payments into one account.
 | 2 — Marketing & leads    | Landing page, lead capture, SEO                                           | ✅ Implemented (lead storage needs Supabase)               |
 | 3 — Merchant onboarding  | Auth, registration, subdomain, plan, wizard, dashboard, superadmin review | ✅ Implemented (connect Supabase to run)                   |
 | 3+ — Payments & pharmacy | Merchant-owned payment connections, Licensed Pharmacy verification        | 🚧 Implemented (connect Supabase; live payments need keys) |
+| 4a — Catalogue & bulk    | Master catalogue, one-click import, CSV import/export, bulk management    | 🚧 Implemented (connect Supabase; apply 0016/0017)         |
 | 4–10                     | Commerce → launch                                                         | ⏳ Not started                                             |
 
 See [`docs/PHASES.md`](docs/PHASES.md) for the full tracker and acceptance

@@ -17,6 +17,9 @@ export default [
 	route("onboarding/:step", "routes/onboarding.step.tsx"),
 	route("dashboard", "routes/dashboard.tsx"),
 	route("dashboard/products", "routes/dashboard.products.tsx"),
+	route("dashboard/products/import", "routes/dashboard.products.import.tsx"),
+	route("dashboard/products/csv", "routes/dashboard.products.csv.tsx"),
+	route("dashboard/products/export", "routes/dashboard.products.export.ts"),
 	route("dashboard/payments", "routes/dashboard.payments.tsx"),
 	route("dashboard/pharmacy", "routes/dashboard.pharmacy.tsx"),
 
