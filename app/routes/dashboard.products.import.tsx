@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { Form, Link, redirect, useNavigation } from "react-router";
 import {
+	AlertTriangle,
 	ArrowLeft,
 	CheckCircle2,
 	Layers,
 	Loader2,
 	PackagePlus,
 	Search,
+	XCircle,
 } from "lucide-react";
 import type { Route } from "./+types/dashboard.products.import";
 import { getEnv, toPublicConfig } from "~/lib/env.server";
@@ -255,6 +257,8 @@ function PackDetailView({
 				created: number;
 				skipped: number;
 				failed: number;
+				errors?: { masterId: string; name: string; message: string }[];
+				failedIds?: string[];
 			};
 		}
 	)?.result;
@@ -275,24 +279,84 @@ function PackDetailView({
 				</Link>
 			</div>
 
-			{result && (
-				<div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-					<p className="flex items-center gap-2 font-semibold">
-						<CheckCircle2 className="size-4" /> Import complete
-					</p>
-					<p className="mt-1">
-						Added <strong>{result.created}</strong> new draft product(s).
-						{result.skipped > 0 && (
-							<> {result.skipped} already in your catalogue (skipped).</>
-						)}
-						{result.failed > 0 && <> {result.failed} failed.</>}{" "}
-						<Link to="/dashboard/products" className="font-semibold underline">
-							Go to products
-						</Link>{" "}
-						to set prices and publish.
-					</p>
-				</div>
-			)}
+			{result &&
+				(() => {
+					const allFailed = result.created === 0 && result.failed > 0;
+					const partial = result.created > 0 && result.failed > 0;
+					const tone = allFailed
+						? "border-red-200 bg-red-50 text-red-800"
+						: partial
+							? "border-amber-200 bg-amber-50 text-amber-900"
+							: "border-brand-200 bg-brand-50 text-brand-900";
+					const Icon = allFailed
+						? XCircle
+						: partial
+							? AlertTriangle
+							: CheckCircle2;
+					const heading = allFailed
+						? "Import failed"
+						: partial
+							? "Import partly completed"
+							: "Import complete";
+					return (
+						<div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${tone}`}>
+							<p className="flex items-center gap-2 font-semibold">
+								<Icon className="size-4" /> {heading}
+							</p>
+							<p className="mt-1">
+								<strong>{result.created}</strong> added
+								{result.skipped > 0 && (
+									<> · {result.skipped} already in your catalogue (skipped)</>
+								)}
+								{result.failed > 0 && (
+									<>
+										{" "}
+										· <strong>{result.failed}</strong> failed
+									</>
+								)}
+								.
+							</p>
+							{result.created > 0 && (
+								<p className="mt-1">
+									<Link
+										to="/dashboard/products"
+										className="font-semibold underline"
+									>
+										Go to products
+									</Link>{" "}
+									to set prices and publish.
+								</p>
+							)}
+							{result.errors && result.errors.length > 0 && (
+								<details className="mt-2">
+									<summary className="cursor-pointer font-medium">
+										Show {result.errors.length} error
+										{result.errors.length === 1 ? "" : "s"}
+									</summary>
+									<ul className="mt-1 max-h-40 list-disc overflow-auto pl-5">
+										{result.errors.slice(0, 50).map((e) => (
+											<li key={e.masterId}>
+												{e.name}: {e.message}
+											</li>
+										))}
+									</ul>
+								</details>
+							)}
+							{result.failedIds && result.failedIds.length > 0 && (
+								<Form method="post" className="mt-3">
+									<input type="hidden" name="packId" value={pack?.id ?? ""} />
+									{result.failedIds.map((id) => (
+										<input key={id} type="hidden" name="masterId" value={id} />
+									))}
+									<Button type="submit" variant="outline" size="sm" disabled={busy}>
+										{busy ? <Loader2 className="animate-spin" /> : null}
+										Retry {result.failedIds.length} failed
+									</Button>
+								</Form>
+							)}
+						</div>
+					);
+				})()}
 			{error && (
 				<div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
 					{error}
