@@ -66,6 +66,18 @@ insert into public.pharmacy_verifications (tenant_id, status, license_number) va
   ('bbbbbbbb-0000-0000-0000-000000000001', 'pending', 'DL-B-456')
 on conflict do nothing;
 
+-- Products (0016): a draft for A, a published-visible one for B.
+insert into public.products (tenant_id, slug, name, price_paise, status, is_visible) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'a-item', 'A Draft Item', 1000, 'draft', false),
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'b-item', 'B Live Item', 2000, 'published', true)
+on conflict do nothing;
+
+-- Import summaries (0016) — tenant-scoped.
+insert into public.merchant_catalogue_imports (tenant_id, source, total_requested, created_count) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'catalogue', 5, 5),
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'catalogue', 9, 9)
+on conflict do nothing;
+
 -- --- Act as Owner A ----------------------------------------------------------
 set local role authenticated;
 select set_config(
@@ -130,6 +142,52 @@ begin
     where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
   assert med = false, 'SAFETY FAILURE: medicine ordering should default to false';
   raise notice 'PASS: medicine ordering defaults to disabled';
+end $$;
+
+-- EXPECT: Owner A sees only their own products, never Store B's.
+do $$
+declare a_count int; b_leak int;
+begin
+  select count(*) into a_count from public.products
+    where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  select count(*) into b_leak from public.products
+    where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert a_count >= 1, 'Owner A should see their own product';
+  assert b_leak = 0, 'ISOLATION FAILURE: Owner A can read Store B products';
+  raise notice 'PASS: Owner A sees % own product(s), % of Store B (expected 0)', a_count, b_leak;
+end $$;
+
+-- EXPECT: Owner A cannot modify Store B's product (RLS filters update to 0 rows).
+do $$
+declare rows_changed int;
+begin
+  update public.products set price_paise = 1 where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  get diagnostics rows_changed = row_count;
+  assert rows_changed = 0, 'ISOLATION FAILURE: Owner A modified Store B products';
+  raise notice 'PASS: Owner A cannot modify Store B products (0 rows affected)';
+end $$;
+
+-- EXPECT: import summaries are isolated per tenant.
+do $$
+declare a_count int; b_leak int;
+begin
+  select count(*) into a_count from public.merchant_catalogue_imports
+    where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  select count(*) into b_leak from public.merchant_catalogue_imports
+    where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert a_count = 1, 'Owner A should see their own import summary';
+  assert b_leak = 0, 'ISOLATION FAILURE: Owner A can read Store B import summaries';
+  raise notice 'PASS: import summaries isolated (% own, % of B)', a_count, b_leak;
+end $$;
+
+-- EXPECT: the shared master catalogue IS readable by a signed-in merchant
+-- (it is platform-owned, not tenant-scoped). Requires seed 0017 applied.
+do $$
+declare packs int;
+begin
+  select count(*) into packs from public.catalogue_packs where is_active;
+  assert packs >= 1, 'Merchant should be able to read active catalogue packs';
+  raise notice 'PASS: merchant can read % active catalogue pack(s)', packs;
 end $$;
 
 reset role;

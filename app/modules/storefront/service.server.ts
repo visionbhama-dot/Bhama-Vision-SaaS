@@ -147,6 +147,7 @@ export async function getStorefront(
 		)
 		.eq("tenant_id", store.tenantId)
 		.eq("is_visible", true)
+		.eq("status", "published")
 		.is("archived_at", null)
 		.order("name", { ascending: true })
 		.limit(500);

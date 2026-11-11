@@ -95,9 +95,32 @@ medicine ordering, and platform verification is never presented as government
 approval. Medicine ordering is a separate, explicit, audited admin action gated
 on a prior `verified` status and intended to follow the applicable legal review.
 
+## Phase 4a — Master catalogue, one-click import & bulk products 🚧 (apply migrations + connect Supabase to run)
+
+Advances the Phase 4 "catalog" item below.
+
+| Item                                                           | State   | Notes                                                                      |
+| -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------- |
+| Platform master catalogue (separate from merchant inventory)   | ✅      | `master_products`, `catalogue_packs`, `catalogue_pack_items` (0016)        |
+| 5 ready-made packs seeded with generic products                | ✅      | 227 illustrative generics (0017); repeatable via `db/seed/*`               |
+| One-click "Add from catalogue" with multi-select/search/filter | ✅      | `/dashboard/products/import`; drafts only                                  |
+| Import idempotency + DB-level dedup                            | ✅🧪    | unique `(tenant_id, master_product_id)`; on-conflict-do-nothing; batched   |
+| CSV template / upload / validate / preview / import / export   | ✅🧪    | `/dashboard/products/csv` + `/export`; parser + validation unit tested     |
+| CSV formula-injection-safe export + row-level error report     | ✅🧪    | `sanitizeCell`; downloadable error CSV                                     |
+| Bulk price/stock/category/publish/unpublish/archive/restore    | ✅      | bounded to 500/op; destructive actions confirmed                           |
+| Search / status + stock filters / sort / pagination / stats    | ✅      | `/dashboard/products`                                                      |
+| Draft-by-default; storefront shows only published+visible      | ✅      | `products.status`; storefront query filters `status='published'`           |
+| Catalogue + product tenant-isolation DB test                   | ✅ / 🔒 | extended `db/tests/rls_isolation.sql` — **NOT executed** (no live PG here) |
+| Live run against a real Supabase project                       | 🔒      | needs your Supabase project + migrations 0016/0017                         |
+
+**Known limitation to address next:** the merchant payment _connection_ currently
+validates key-id **format** only and marks a test key `connected` without calling
+the provider to verify the account. Real payment acceptance (order creation +
+signature-verified webhooks) is still required before claiming live payments.
+
 ## Phases 4–10 — ⏳ Not started
 
-4. Single-store commerce (catalog, storefront, cart, checkout, COD, orders, reports)
+4. Single-store commerce (catalog ✅ via Phase 4a; storefront, cart, checkout, COD, orders, reports)
 5. Payment integration (SaaS billing + merchant gateway, webhooks, refunds)
 6. Delivery management (riders, assignment, foreground live tracking)
 7. Marketplace (vendors, multi-vendor orders, commissions, settlements)
