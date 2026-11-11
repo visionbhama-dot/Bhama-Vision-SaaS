@@ -66,10 +66,12 @@ insert into public.pharmacy_verifications (tenant_id, status, license_number) va
   ('bbbbbbbb-0000-0000-0000-000000000001', 'pending', 'DL-B-456')
 on conflict do nothing;
 
--- Products (0016): a draft for A, a published-visible one for B.
+-- Products (0016): private DRAFT products for each tenant. (Published products
+-- of an active store are intentionally world-readable for the storefront, so
+-- isolation is proven with private draft rows, not public listings.)
 insert into public.products (tenant_id, slug, name, price_paise, status, is_visible) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'a-item', 'A Draft Item', 1000, 'draft', false),
-  ('bbbbbbbb-0000-0000-0000-000000000001', 'b-item', 'B Live Item', 2000, 'published', true)
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'b-item', 'B Draft Item', 2000, 'draft', false)
 on conflict do nothing;
 
 -- Import summaries (0016) — tenant-scoped.

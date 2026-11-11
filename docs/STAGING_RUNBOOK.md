@@ -74,3 +74,49 @@ All three should print only `PASS:` notices and roll back.
   SQL harnesses written, not executed here.
 - Any real Razorpay transaction, webhook delivery, or signature round-trip
   against the live API.
+
+---
+
+## Phase 7 — real-PostgreSQL verification (executed) + deployment readiness
+
+### Fast local DB verification (no hosting needed)
+
+A real PostgreSQL engine runs in-process via PGlite (WASM) with a small
+Supabase-compatibility shim (the `auth` schema + `auth.uid()`, the
+`anon`/`authenticated`/`service_role` roles, and Supabase's default table
+grants). This runs the ACTUAL migrations + SQL suites:
+
+```
+npm run test:db
+```
+
+It applies migrations `0001`→`0019` to a fresh database and runs
+`rls_isolation.sql`, `onboarding_permissions.sql`, and `checkout_orders.sql`,
+plus a privileged-RPC lockdown check. **This is an approximation of hosted
+Supabase for speed; Supabase remains the real target** — still run the `psql`
+suite (section 3) against your Supabase staging DB before a live pilot.
+
+### Results recorded in Phase 7 (executed here)
+
+- ✅ 19 migrations apply cleanly to an empty PostgreSQL 18 database.
+- ✅ Master catalogue seed integrity: 227 products.
+- ✅ Privileged RPCs (`place_order`, `create_merchant`, `cancel_order`) are NOT
+  callable by `authenticated` (execute revoked) — this surfaced + fixed a real
+  gap where `create_merchant` was still callable via `PUBLIC` (migration 0019).
+- ✅ `rls_isolation.sql` — tenant isolation across customers, leads, payment
+  accounts, pharmacy, products, orders and imports.
+- ✅ `onboarding_permissions.sql` — atomic merchant creation + duplicate-slug
+  rejection + cross-tenant write blocked.
+- ✅ `checkout_orders.sql` — COD idempotency, last-unit oversell guard, and
+  cancel-restores-stock.
+- ✅ Running against real PostgreSQL also caught a **critical** `place_order`
+  ambiguous-column bug that would have failed every checkout — fixed in 0019.
+
+### Deployment readiness (executed here)
+
+- ✅ `npm run build` + `npx wrangler deploy --dry-run` succeed. Worker upload is
+  ~2.4 MB raw / ~465 KiB gzip — within the Workers **Free** 3 MB limit. Checkout
+  makes a single Supabase subrequest, far under the 50-subrequest limit.
+- ⛔ Not deployed: no Cloudflare/Supabase credentials in this environment.
+
+### Highest applied migration: **0019**.
