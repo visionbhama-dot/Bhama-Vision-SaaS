@@ -105,11 +105,11 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 		{ label: "Products", icon: Package, to: "/dashboard/products" },
 		{ label: "Payments", icon: Wallet, to: "/dashboard/payments" },
 		{ label: "Pharmacy", icon: Pill, to: "/dashboard/pharmacy" },
-		{ label: "Orders", icon: ShoppingCart },
+		{ label: "Orders", icon: ShoppingCart, to: "/dashboard/orders" },
 		{ label: "Customers", icon: Users },
-		{ label: "Delivery", icon: Bike },
+		{ label: "Delivery", icon: Bike, to: "/dashboard/delivery" },
 		{ label: "Storefront", icon: StoreIcon, href: `/store/${store.slug}` },
-		{ label: "Settings", icon: Settings },
+		{ label: "Settings", icon: Settings, to: "/dashboard/settings" },
 	];
 
 	return (

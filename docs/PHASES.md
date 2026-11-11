@@ -118,10 +118,33 @@ validates key-id **format** only and marks a test key `connected` without callin
 the provider to verify the account. Real payment acceptance (order creation +
 signature-verified webhooks) is still required before claiming live payments.
 
+## Phase 6 — Customer checkout, orders & self-delivery 🚧 (apply migrations + connect Supabase to run)
+
+Completes the Phase 4 commerce loop for a single store (COD-first).
+
+| Item                                                          | State   | Notes                                                                 |
+| ------------------------------------------------------------- | ------- | --------------------------------------------------------------------- |
+| Interactive storefront (search, categories, cart, mobile)     | ✅      | `modules/storefront` cart + drawer + floating bar                     |
+| Mobile-first checkout with server-recomputed totals           | ✅🧪    | `modules/checkout/pricing` unit tested; browser totals never trusted  |
+| Atomic COD order placement (oversell-safe, duplicate-safe)    | ✅ / 🔒 | `place_order()` (0018); SQL harness `db/tests/checkout_orders.sql`    |
+| Guest checkout + order confirmation + public tracking page    | ✅      | `/store/:slug/checkout`, `/store/:slug/order/:token`                  |
+| Merchant order dashboard + auditable status transitions       | ✅🧪    | `/dashboard/orders`; state machine unit tested; invalid moves blocked |
+| COD mark-paid (payment vs fulfilment kept separate)           | ✅      | `orders.payment_state` distinct from `orders.status`                  |
+| Cancel restores stock atomically                              | ✅ / 🔒 | `cancel_order()` (0018)                                               |
+| Self-delivery: riders + manual assign + pickup/deliver        | ✅      | `/dashboard/delivery`, order detail                                   |
+| Store/delivery settings (hours, fee, min, free-threshold…)    | ✅      | `/dashboard/settings`                                                 |
+| Payment secrets encrypted at rest (AES-GCM, one platform key) | ✅🧪    | `lib/crypto.server.ts`; replaces per-tenant Worker secrets            |
+| Real Razorpay credential verification (not format-only)       | ✅ / 🔒 | API call on connect; online gated on a verified connection            |
+| Razorpay order + checkout-signature + webhook HMAC + dedup    | ✅ / 🔒 | `payments/gateway.server.ts`, `online.server.ts`; **not exercised**   |
+| DB isolation + checkout correctness run on real Postgres      | 🔒      | No Postgres here — see `docs/STAGING_RUNBOOK.md`                      |
+
+**Still blocking a real online payment:** a Razorpay **test** account + webhook
+registration + a sandbox transaction (see runbook). COD needs none of this.
+
 ## Phases 4–10 — ⏳ Not started
 
-4. Single-store commerce (catalog ✅ via Phase 4a; storefront, cart, checkout, COD, orders, reports)
-5. Payment integration (SaaS billing + merchant gateway, webhooks, refunds)
+4. Single-store commerce (catalog ✅ 4a; storefront/cart/checkout/COD/orders ✅ Phase 6; reports pending)
+5. Payment integration (SaaS billing + merchant gateway ✅ code via Phase 6 / verify on real account, webhooks ✅ code, refunds)
 6. Delivery management (riders, assignment, foreground live tracking)
 7. Marketplace (vendors, multi-vendor orders, commissions, settlements)
 8. Superadmin completion (merchants, plans, billing, support, analytics, audit)

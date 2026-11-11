@@ -20,6 +20,7 @@ export interface StorefrontProduct {
 	name: string;
 	description: string | null;
 	unit: string | null;
+	category: string | null;
 	pricePaise: number;
 	mrpPaise: number | null;
 	imageUrl: string | null;
@@ -143,7 +144,7 @@ export async function getStorefront(
 	const { data } = await admin
 		.from("products")
 		.select(
-			"id, name, description, unit, price_paise, mrp_paise, product_images(url, position)",
+			"id, name, description, unit, category, price_paise, mrp_paise, product_images(url, position)",
 		)
 		.eq("tenant_id", store.tenantId)
 		.eq("is_visible", true)
@@ -162,6 +163,7 @@ export async function getStorefront(
 			name: p.name as string,
 			description: (p.description as string | null) ?? null,
 			unit: (p.unit as string | null) ?? null,
+			category: (p.category as string | null) ?? null,
 			pricePaise: Number(p.price_paise ?? 0),
 			mrpPaise: p.mrp_paise == null ? null : Number(p.mrp_paise),
 			imageUrl: images[0]?.url ?? null,

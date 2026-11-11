@@ -87,3 +87,59 @@ Storage bucket named `pharmacy-docs` (no public access; readable only by the
 owning tenant + platform admins). Until that bucket is created, the UI records
 document **references/metadata** only — it never publishes files and never fakes
 an upload. See `db/migrations/0015` and `/dashboard/pharmacy`.
+
+## Phase 6 update — COD journey + hardened online payments
+
+### Cash on Delivery (the working path)
+
+COD is fully implemented and is the recommended way to take the first real
+orders. Checkout → `place_order()` (atomic, oversell-safe, duplicate-safe) →
+customer confirmation → merchant dashboard → self-delivery → merchant marks COD
+paid on collection. Fulfilment status (`orders.status`) and payment status
+(`orders.payment_state`) are tracked separately — delivering an order never
+auto-marks it paid, and vice versa.
+
+### Secret storage — supersedes the per-tenant Worker-secret idea
+
+Earlier notes suggested a Worker secret per tenant (`RZP_SECRET_<tenant>`). That
+does **not** scale: Cloudflare limits the number of environment
+variables/secret bindings per Worker (dozens, not thousands), so a secret per
+merchant would cap the platform at a handful of stores and require a redeploy to
+add one.
+
+**Implemented approach:** one platform key `PAYMENTS_ENC_KEY` (a 256-bit Worker
+secret) encrypts each merchant's API secret + webhook secret with AES-256-GCM
+(`app/lib/crypto.server.ts`). The ciphertext lives in
+`merchant_payment_accounts.secret_ciphertext` / `webhook_secret_ciphertext`;
+plaintext never touches the database, the browser or logs. This scales to many
+merchants with a single secret and is appropriate for the first two merchants
+and beyond. (A future upgrade path is a managed KMS/Vault — the storage shape
+doesn't need to change.)
+
+### Real credential verification (fixes the format-only limitation)
+
+Connecting a provider now calls the Razorpay API to verify the key pair before
+marking the connection `connected`/`verified`. A key that only _looks_ valid is
+never treated as operational; it stays `pending` (public key only) or `error`
+(verification failed). Online checkout is offered **only** when a verified,
+decryptable connection exists (`getVerifiedConnection`).
+
+### Online order lifecycle (implemented, not yet exercised)
+
+1. Server creates a Razorpay order for the **server-calculated** paise amount
+   using the merchant's own credentials; stores `provider_order_id`.
+2. Browser completes Razorpay Checkout; the callback posts to
+   `/api/payments/verify`, which verifies `HMAC(order_id|payment_id, key_secret)`
+   AND fetches the payment to confirm it is actually captured before marking
+   paid. Returning to a success URL alone never marks an order paid.
+3. The authoritative confirmation is the webhook at
+   `/api/payments/webhook/:tenant`: it verifies `HMAC(rawBody, webhook_secret)`
+   (a secret **separate** from the API key) in constant time, deduplicates by
+   event id via an atomic unique insert, and marks the order paid **once**.
+   The per-tenant path + per-tenant secret mean one merchant's webhook cannot
+   affect another's orders.
+
+> ⚠️ Not exercised against Razorpay in this environment (no merchant test
+> credentials). The code is implemented to Razorpay's contract and unit-tested
+> for signature/HMAC correctness, but a real sandbox transaction has not been
+> run. Keep online payments disabled until verified against a real test account.
