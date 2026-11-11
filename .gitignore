@@ -207,3 +207,6 @@ dist
 .dev.vars
 !.env.example
 !.dev.vars.example
+
+### Bhama Vision — database exports (NEVER commit; contain tenant/customer data) ###
+/db/backup/*.json
