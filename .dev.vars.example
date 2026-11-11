@@ -5,4 +5,7 @@
 SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
 SUPABASE_ANON_KEY="your-anon-public-key"
 SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+# Only needed to enable online payments (COD works without it).
+# Generate: openssl rand -base64 32
+PAYMENTS_ENC_KEY=""
 ENVIRONMENT="development"

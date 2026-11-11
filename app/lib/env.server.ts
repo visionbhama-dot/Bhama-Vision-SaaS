@@ -29,6 +29,11 @@ const envSchema = z.object({
 	// Service role bypasses RLS — server only, never exposed to the browser.
 	SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
+	// Base64-encoded 256-bit key used to encrypt merchant payment secrets at
+	// rest (AES-GCM). Server-only. Required to connect an online payment
+	// provider; COD works without it. Generate: openssl rand -base64 32
+	PAYMENTS_ENC_KEY: z.string().optional(),
+
 	// --- Operational toggles ---
 	ENVIRONMENT: z
 		.enum(["development", "preview", "production"])

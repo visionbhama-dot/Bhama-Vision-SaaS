@@ -22,9 +22,22 @@ export default [
 	route("dashboard/products/export", "routes/dashboard.products.export.ts"),
 	route("dashboard/payments", "routes/dashboard.payments.tsx"),
 	route("dashboard/pharmacy", "routes/dashboard.pharmacy.tsx"),
+	route("dashboard/orders", "routes/dashboard.orders.tsx"),
+	route("dashboard/orders/:id", "routes/dashboard.orders.$id.tsx"),
+	route("dashboard/delivery", "routes/dashboard.delivery.tsx"),
+	route("dashboard/settings", "routes/dashboard.settings.tsx"),
 
 	// Customer storefront (path form; subdomain/custom-domain resolves via Host)
 	route("store/:slug", "routes/storefront.tsx"),
+	route("store/:slug/checkout", "routes/storefront.checkout.tsx"),
+	route("store/:slug/order/:token", "routes/storefront.order.tsx"),
+
+	// Payment callbacks / webhooks (resource routes)
+	route("api/payments/verify", "routes/api.payments.verify.ts"),
+	route(
+		"api/payments/webhook/:tenant",
+		"routes/api.payments.webhook.tenant.ts",
+	),
 
 	// Superadmin
 	route("admin", "routes/admin.tsx"),

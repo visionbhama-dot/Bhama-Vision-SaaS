@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "~/lib/supabase.server";
+import {
+	decryptSecret,
+	encryptSecret,
+	isEncryptionConfigured,
+} from "~/lib/crypto.server";
 import { ownedTenantId } from "~/modules/onboarding/service.server";
 import { getProvider } from "./providers/registry";
+import { verifyRazorpayCredentials } from "./gateway.server";
 import type { ConnectInput } from "./schema";
 
 /**
@@ -116,24 +122,88 @@ export async function connectProvider(
 
 	const secretRef = adapter.secretEnvVar(tenantId);
 	const nowIso = new Date().toISOString();
-	const isTest = input.environment === "test";
-	const status = isTest ? "connected" : "pending";
+	const keySecret = (input.keySecret ?? "").trim();
+	const webhookSecret = (input.webhookSecret ?? "").trim();
 
-	const { error } = await admin.from("merchant_payment_accounts").upsert(
-		{
-			tenant_id: tenantId,
-			provider: input.provider,
-			environment: input.environment,
-			status,
-			key_id: validation.normalized.keyId,
-			account_ref: validation.normalized.accountRef,
-			secret_ref: secretRef,
-			last_error: null,
-			connected_at: isTest ? nowIso : null,
-			verified_at: isTest ? nowIso : null,
-		},
-		{ onConflict: "tenant_id,provider" },
-	);
+	// Base row (public, non-secret fields).
+	const row: Record<string, unknown> = {
+		tenant_id: tenantId,
+		provider: input.provider,
+		environment: input.environment,
+		key_id: validation.normalized.keyId,
+		account_ref: validation.normalized.accountRef,
+		secret_ref: secretRef,
+		last_error: null,
+	};
+
+	let status: PaymentAccount["status"];
+
+	if (!keySecret) {
+		// Public key only: we cannot verify the account or charge — record it as
+		// PENDING. Format-passing alone must never mark a connection operational.
+		status = "pending";
+		row.status = status;
+		row.connected_at = null;
+		row.verified_at = null;
+	} else {
+		// A secret was provided: we must encrypt it, which requires the key.
+		if (!(await isEncryptionConfigured(env))) {
+			return {
+				ok: false,
+				error:
+					"Online payments aren't available yet: PAYMENTS_ENC_KEY is not configured on the server.",
+			};
+		}
+		// REAL verification against the provider (not just key format).
+		const verified = await verifyRazorpayCredentials(
+			validation.normalized.keyId,
+			keySecret,
+		);
+		if (!verified.ok) {
+			status = "error";
+			row.status = status;
+			row.last_error = verified.error ?? "Verification failed";
+			row.connected_at = null;
+			row.verified_at = null;
+			await admin
+				.from("merchant_payment_accounts")
+				.upsert(row, { onConflict: "tenant_id,provider" });
+			await logAudit(
+				admin,
+				userId,
+				tenantId,
+				"merchant.payment.verify_failed",
+				{ provider: input.provider },
+			);
+			return {
+				ok: false,
+				error: verified.error ?? "Could not verify your payment credentials.",
+			};
+		}
+		const encSecret = await encryptSecret(env, keySecret);
+		if (!encSecret)
+			return {
+				ok: false,
+				error: "Could not secure your credentials. Try again.",
+			};
+		row.secret_ciphertext = encSecret.ciphertext;
+		row.secret_iv = encSecret.iv;
+		if (webhookSecret) {
+			const encHook = await encryptSecret(env, webhookSecret);
+			if (encHook) {
+				row.webhook_secret_ciphertext = encHook.ciphertext;
+				row.webhook_secret_iv = encHook.iv;
+			}
+		}
+		status = "connected";
+		row.status = status;
+		row.connected_at = nowIso;
+		row.verified_at = nowIso;
+	}
+
+	const { error } = await admin
+		.from("merchant_payment_accounts")
+		.upsert(row, { onConflict: "tenant_id,provider" });
 	if (error) {
 		return {
 			ok: false,
@@ -148,6 +218,70 @@ export async function connectProvider(
 		status,
 	});
 	return { ok: true, status, secretRef };
+}
+
+export interface VerifiedConnection {
+	provider: string;
+	environment: "test" | "live";
+	keyId: string;
+	keySecret: string;
+	webhookSecret: string | null;
+}
+
+/**
+ * Load a merchant's payment connection decrypted for server-side use, ONLY when
+ * it is genuinely usable: status 'connected', verified, with an encrypted secret
+ * present. Returns null otherwise, which is how online checkout stays disabled
+ * for unverified connections. Never returned to the browser.
+ */
+export async function getVerifiedConnection(
+	env: unknown,
+	tenantId: string,
+): Promise<VerifiedConnection | null> {
+	const admin = getAdminClient(env);
+	if (!admin) return null;
+	const { data } = await admin
+		.from("merchant_payment_accounts")
+		.select(
+			"provider, environment, status, key_id, verified_at, secret_ciphertext, secret_iv, webhook_secret_ciphertext, webhook_secret_iv",
+		)
+		.eq("tenant_id", tenantId)
+		.eq("status", "connected")
+		.not("verified_at", "is", null)
+		.limit(1)
+		.maybeSingle();
+	if (!data || !data.secret_ciphertext || !data.secret_iv || !data.key_id)
+		return null;
+
+	const keySecret = await decryptSecret(
+		env,
+		data.secret_ciphertext as string,
+		data.secret_iv as string,
+	);
+	if (!keySecret) return null;
+	let webhookSecret: string | null = null;
+	if (data.webhook_secret_ciphertext && data.webhook_secret_iv) {
+		webhookSecret = await decryptSecret(
+			env,
+			data.webhook_secret_ciphertext as string,
+			data.webhook_secret_iv as string,
+		);
+	}
+	return {
+		provider: data.provider as string,
+		environment: data.environment as "test" | "live",
+		keyId: data.key_id as string,
+		keySecret,
+		webhookSecret,
+	};
+}
+
+/** True when a store can offer online payment (verified, usable connection). */
+export async function hasVerifiedOnlinePayment(
+	env: unknown,
+	tenantId: string,
+): Promise<boolean> {
+	return (await getVerifiedConnection(env, tenantId)) !== null;
 }
 
 export async function disconnectProvider(

@@ -78,6 +78,13 @@ insert into public.merchant_catalogue_imports (tenant_id, source, total_requeste
   ('bbbbbbbb-0000-0000-0000-000000000001', 'catalogue', 9, 9)
 on conflict do nothing;
 
+-- Orders (0018) — one per tenant. Customer order details must never leak.
+insert into public.orders (tenant_id, number, status, payment_method, payment_state, subtotal_paise, delivery_paise, total_paise)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'ORD-A-0001', 'placed', 'cod', 'pending', 1000, 0, 1000),
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'ORD-B-0001', 'placed', 'cod', 'pending', 2000, 0, 2000)
+on conflict do nothing;
+
 -- --- Act as Owner A ----------------------------------------------------------
 set local role authenticated;
 select set_config(
@@ -188,6 +195,27 @@ begin
   select count(*) into packs from public.catalogue_packs where is_active;
   assert packs >= 1, 'Merchant should be able to read active catalogue packs';
   raise notice 'PASS: merchant can read % active catalogue pack(s)', packs;
+end $$;
+
+-- EXPECT: Owner A sees only their own orders, never Store B's.
+do $$
+declare a_count int; b_leak int;
+begin
+  select count(*) into a_count from public.orders where tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  select count(*) into b_leak from public.orders where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert a_count = 1, 'Owner A should see their own order';
+  assert b_leak = 0, 'ISOLATION FAILURE: Owner A can read Store B orders';
+  raise notice 'PASS: Owner A sees % own order(s), % of Store B (expected 0)', a_count, b_leak;
+end $$;
+
+-- EXPECT: Owner A cannot modify Store B's order (RLS filters update to 0 rows).
+do $$
+declare rows_changed int;
+begin
+  update public.orders set status = 'delivered' where tenant_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  get diagnostics rows_changed = row_count;
+  assert rows_changed = 0, 'ISOLATION FAILURE: Owner A modified Store B order';
+  raise notice 'PASS: Owner A cannot modify Store B orders (0 rows affected)';
 end $$;
 
 reset role;
