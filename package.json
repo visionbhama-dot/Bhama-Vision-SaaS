@@ -23,6 +23,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "1.52.1",
+		"@electric-sql/pglite": "^0.5.16",
 		"@eslint/js": "^10.0.1",
 		"@react-router/dev": "7.9.6",
 		"@tailwindcss/vite": "4.1.17",
@@ -56,6 +57,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"test:db": "node db/tests/run-local-pg.mjs"
 	}
 }

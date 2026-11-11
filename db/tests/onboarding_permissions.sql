@@ -32,6 +32,7 @@ do $$
 declare
   ta uuid;
   tb uuid;
+  v_blocked boolean := false;
 begin
   ta := public.create_merchant(
     '00000000-0000-0000-0000-0000000000a1', 'Store A', 'single_store',
@@ -43,7 +44,6 @@ begin
   raise notice 'PASS: two merchants created (% , %)', ta, tb;
 
   -- Duplicate subdomain must be rejected.
-  declare v_blocked boolean := false;
   begin
     perform public.create_merchant(
       '00000000-0000-0000-0000-0000000000b1', 'Dupe', 'single_store',
