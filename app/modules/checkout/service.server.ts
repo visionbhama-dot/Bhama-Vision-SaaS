@@ -322,7 +322,7 @@ export async function getOrderByToken(
 	const { data: order } = await admin
 		.from("orders")
 		.select(
-			"id, number, status, payment_method, payment_state, subtotal_paise, delivery_paise, total_paise, placed_at, delivery_address, tenant_id, stores:tenant_id(display_name)",
+			"id, number, status, payment_method, payment_state, subtotal_paise, delivery_paise, total_paise, placed_at, delivery_address, tenant_id",
 		)
 		.eq("public_token", token)
 		.maybeSingle();
